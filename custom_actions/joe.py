@@ -47,12 +47,15 @@ def submit(
     malicious = info["most_relevant_analysis"]["detection"]
 
     iocs_r = joe.analysis_download(info["most_relevant_analysis"]["webid"], "iocjson")
-    urls = [(x["@name"], x["@malicious"]) for x in iocs_r["analysis"]["urlinfo"]["url"]]
-    ips = [(x["@ip"], x["@malicious"]) for x in iocs_r["analysis"]["ipinfo"]["ip"]]
-    domains = [
-        (x["@name"], x["@malicious"])
-        for x in iocs_r["analysis"]["domaininfo"]["domain"]
-    ]
+    urlinfo = iocs_r["analysis"]["urlinfo"]
+    if urlinfo:
+        urls = [(x["@name"], x["@malicious"]) for x in urlinfo["url"]]
+    ipinfo = iocs_r["analysis"]["ipinfo"]
+    if ipinfo:
+        ips = [(x["@ip"], x["@malicious"]) for x in ipinfo["ip"]]
+    domaininfo = iocs_r["analysis"]["domaininfo"]
+    if domaininfo:
+        domains = [(x["@name"], x["@malicious"]) for x in domaininfo["domain"]]
 
     return {
         "malicious": malicious,
