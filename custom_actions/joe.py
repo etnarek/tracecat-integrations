@@ -1,3 +1,4 @@
+import json
 from base64 import b64decode
 from io import BytesIO
 from time import sleep
@@ -46,7 +47,9 @@ def submit(
             break
     malicious = info["most_relevant_analysis"]["detection"]
 
-    iocs_r = joe.analysis_download(info["most_relevant_analysis"]["webid"], "iocjson")
+    iocs_r = json.loads(
+        joe.analysis_download(info["most_relevant_analysis"]["webid"], "iocjson")[1]
+    )
     urlinfo = iocs_r["analysis"]["urlinfo"]
     if urlinfo:
         urls = [(x["@name"], x["@malicious"]) for x in urlinfo["url"]]
