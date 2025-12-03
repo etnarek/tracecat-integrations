@@ -50,6 +50,8 @@ def submit(
     iocs_r = json.loads(
         joe.analysis_download(info["most_relevant_analysis"]["webid"], "iocjson")[1]
     )
+    urls, ips, domains = [], [], []
+
     urlinfo = iocs_r["analysis"]["urlinfo"]
     if urlinfo:
         urls = [(x["@name"], x["@malicious"]) for x in urlinfo["url"]]
