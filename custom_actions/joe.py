@@ -1,4 +1,5 @@
 from base64 import b64decode
+from io import BytesIO
 from time import sleep
 from typing import Annotated, Any
 
@@ -30,7 +31,7 @@ def submit(
     joe = jbxapi.JoeSandbox(
         apikey=secrets.get("JOE_APIKEY"), apiurl=secrets.get("JOE_APIURL")
     )
-    sample = (filename, b64decode(data))
+    sample = (filename, BytesIO(b64decode(data)))
 
     r = joe.submit_sample(sample)
     submission_id = r["submission_id"]
