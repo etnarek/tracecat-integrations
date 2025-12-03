@@ -28,8 +28,11 @@ def submit(
     data: Annotated[str, Field(description="The data to submit to joe sandbox.")],
     filename: Annotated[str, Field(description="Filename of the sample")],
 ) -> dict[str, Any]:
+
     joe = jbxapi.JoeSandbox(
-        apikey=secrets.get("JOE_APIKEY"), apiurl=secrets.get("JOE_APIURL")
+        apikey=secrets.get("JOE_APIKEY"),
+        apiurl=secrets.get("JOE_APIURL"),
+        accept_tac=True,
     )
     sample = (filename, BytesIO(b64decode(data)))
 
