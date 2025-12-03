@@ -39,15 +39,14 @@ def submit(
     r = joe.submit_sample(sample)
     submission_id = r["submission_id"]
 
-    sleep(SLEEP_TIME)
-
     while True:
-        info = joe.analysis_info(submission_id)
+        sleep(SLEEP_TIME)
+        info = joe.submission_info(submission_id)
         if info["status"] == "finished":
             break
-    malicious = info["detection"]
+    malicious = info["most_relevant_analysis"]["detection"]
 
-    iocs_r = joe.analysis_download(submission_id, "iocjson")
+    iocs_r = joe.analysis_download(info["most_relevant_analysis"]["webid"], "iocjson")
     urls = [(x["@name"], x["@malicious"]) for x in iocs_r["analysis"]["urlinfo"]["url"]]
     ips = [(x["@ip"], x["@malicious"]) for x in iocs_r["analysis"]["ipinfo"]["ip"]]
     domains = [
