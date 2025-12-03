@@ -20,7 +20,7 @@ joe_secrets = RegistrySecret(
     display_group="Joe",
     description="Submit a file to joe sandbox and wait for the IOCs back",
     namespace="joe",
-    secrets=joe_secrets,
+    secrets=[joe_secrets],
 )
 def submit(
     data: Annotated[str, Field(description="The data to submit to joe sandbox.")],
