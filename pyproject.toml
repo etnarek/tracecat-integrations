@@ -8,7 +8,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dynamic = ["version"]
-dependencies = []  # Add your pip dependencies here
+dependencies = ["jbxapi"]  # Add your pip dependencies here
 
 [tool.hatch.version]
 path = "custom_actions/__init__.py"
