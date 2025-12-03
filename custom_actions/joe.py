@@ -3,12 +3,12 @@ from typing import Annotated, Any
 
 import jbxapi
 from pydantic import Field
-from tracecat_registry import RegisterSecret, registry, secrets
+from tracecat_registry import RegistrySecret, registry, secrets
 
 SLEEP_TIME = 300
 
 
-joe_secrets = RegisterSecret(
+joe_secrets = RegistrySecret(
     name="joe",
     keys=["JOE_APIKEY"],
     optional_keys=["JOE_APIURL"],
