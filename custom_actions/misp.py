@@ -17,7 +17,7 @@ misp_secrets = RegistrySecret(
 
 
 @registry.register(
-    default_title="Misp create event.",
+    default_title="Misp create event",
     display_group="Misp",
     description="Create a new misp event with a file.",
     namespace="misp",
@@ -31,15 +31,17 @@ def create_event(
 
     event = MISPEvent()
     event.info = f"Malware pipeline file : {filename}"
+    event.add_tag("befish")
 
     data = BytesIO(b64decode(data))
     fo, po, so = make_binary_objects(pseudofile=data, filename=filename)
     if fo:
         for att in fo.attributes:
             att.to_ids = False
+            att.add_tag("befish")
         event.add_object(fo)
-        if po:
-            event.add_object(po)
+    if po:
+        event.add_object(po)
 
     response = misp.add_event(event, pythonify=True)
 
@@ -49,46 +51,57 @@ def create_event(
         raise PyMISPError(f"Failed to created event for file {filename}")
 
 
+def ioc_exists(event: MISPEvent, ioc: str) -> MISPAttribute | None:
+    for att in event.attributes:
+        if att.value == ioc:
+            return att
+    return None
+
+
 def create_attribute(
-    ioc: tuple[str, str], dataType: str, sandbox: str | None = None
-) -> MISPAttribute:
-    att = MISPAttribute()
-    att.category = "Network activity"
-    att.value = ioc[0]
-    att.type = dataType
-    att.to_ids = ioc[1].lower() == "malicious"
-    att.add_tag(ioc[1])
-    if sandbox:
-        att.add_tag(sandbox)
-    return att
+    ioc: tuple[str, str], dataType: str, event: MISPEvent, misp: PyMISP
+) -> None:
+    att = ioc_exists(event, ioc[0])
+    if not att:
+        att = MISPAttribute()
+        att.category = "Network activity"
+        att.value = ioc[0]
+        att.type = dataType
+        att.to_ids = False
+        att = misp.add_attribute(event, att, pythonify=True)
+        event.attributes.append(att)
+    if not att.to_ids and ioc[1].lower() == "malicious":
+        att.to_ids = True
+    att.add_tag(ioc[1].lower())
+    att.add_tag(ioc[2])
+    misp.update_attribute(att)
 
 
 @registry.register(
-    default_title="Misp add iocs to an event.",
+    default_title="Misp add iocs to event",
     display_group="Misp",
     description="Add a list of IOCs to an already created event",
     namespace="misp",
     secrets=[misp_secrets],
 )
 def add_iocs(
-    event: Annotated[str, Field(description="uuid of the event to add to.")],
-    iocs: Annotated[dict[str, Any], Field(description="Dictionary of iocs to add.")],
-    sandbox: Annotated[
-        str | None, Field(description="Sandbox that provided the iocs.")
-    ] = None,
+    event_uuid: Annotated[str, Field(description="uuid of the event to add to.")],
+    iocs: Annotated[
+        list[dict[str, Any]], Field(description="List of dictionaries of iocs to add.")
+    ],
 ) -> dict[str, Any]:
     misp = PyMISP(secrets.get("MISP_URL"), secrets.get("MISP_APIKEY"), SSL, "json")
+    event = misp.get_event(event_uuid, pythonify=True)
 
-    for url in iocs.get("urls", []):
-        att = create_attribute(url, "url", sandbox)
-        misp.add_attribute(event, att)
-    for ip in iocs.get("ips", []):
-        att = create_attribute(ip, "ip-dst", sandbox)
-        misp.add_attribute(event, att)
-    for domain in iocs.get("domains", []):
-        att = create_attribute(domain, "domain", sandbox)
-        misp.add_attribute(event, att)
+    for ioc in iocs:
+        for url in ioc.get("urls", []):
+            create_attribute(url, "url", event, misp)
+        for ip in ioc.get("ips", []):
+            create_attribute(ip, "ip-dst", event, misp)
+        for domain in ioc.get("domains", []):
+            create_attribute(domain, "domain", event, misp)
 
+    misp.update_event(event)
     return {"success": "success"}
 
 

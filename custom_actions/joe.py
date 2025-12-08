@@ -1,14 +1,13 @@
 import json
 from base64 import b64decode
 from io import BytesIO
-from time import sleep
 from typing import Annotated, Any
 
 import jbxapi
 from pydantic import Field
 from tracecat_registry import RegistrySecret, registry, secrets
 
-SLEEP_TIME = 300
+SANDBOX_NAME = "joe"
 
 
 joe_secrets = RegistrySecret(
@@ -21,7 +20,7 @@ joe_secrets = RegistrySecret(
 @registry.register(
     default_title="Joe submit file",
     display_group="Joe",
-    description="Submit a file to joe sandbox and wait for the IOCs back",
+    description="Submit a file to joe sandbox.",
     namespace="joe",
     secrets=[joe_secrets],
 )
@@ -29,7 +28,6 @@ def submit(
     data: Annotated[str, Field(description="The data to submit to joe sandbox.")],
     filename: Annotated[str, Field(description="Filename of the sample")],
 ) -> dict[str, Any]:
-
     joe = jbxapi.JoeSandbox(
         apikey=secrets.get("JOE_APIKEY"),
         apiurl=secrets.get("JOE_APIURL"),
@@ -39,12 +37,34 @@ def submit(
 
     r = joe.submit_sample(sample)
     submission_id = r["submission_id"]
+    return submission_id
 
-    while True:
-        sleep(SLEEP_TIME)
-        info = joe.submission_info(submission_id)
-        if info["status"] == "finished":
-            break
+
+def tag_malicious(is_malicious):
+    return "malicious" if is_malicious == "true" else "unknown"
+
+
+@registry.register(
+    default_title="Joe get report",
+    display_group="Joe",
+    description="Get the IOCs back for a joe sandbox submission.",
+    namespace="joe",
+    secrets=[joe_secrets],
+)
+def get_report(
+    submission_id: Annotated[
+        str, Field(description="Id of the submission in joe sandbox.")
+    ],
+):
+    joe = jbxapi.JoeSandbox(
+        apikey=secrets.get("JOE_APIKEY"),
+        apiurl=secrets.get("JOE_APIURL"),
+        accept_tac=True,
+    )
+    info = joe.submission_info(submission_id)
+    if info["status"] != "finished":
+        return {"status": "pending"}
+
     malicious = info["most_relevant_analysis"]["detection"]
 
     iocs_r = json.loads(
@@ -54,15 +74,26 @@ def submit(
 
     urlinfo = iocs_r["analysis"]["urlinfo"]
     if urlinfo:
-        urls = [(x["@name"], x["@malicious"]) for x in urlinfo["url"]]
+        urls = [
+            (x["@name"], tag_malicious(x["@malicious"]), SANDBOX_NAME)
+            for x in urlinfo["url"]
+        ]
     ipinfo = iocs_r["analysis"]["ipinfo"]
     if ipinfo:
-        ips = [(x["@ip"], x["@malicious"]) for x in ipinfo["ip"]]
+        ips = [
+            (x["@ip"], tag_malicious(x["@malicious"]), SANDBOX_NAME)
+            for x in ipinfo["ip"]
+        ]
     domaininfo = iocs_r["analysis"]["domaininfo"]
     if domaininfo:
-        domains = [(x["@name"], x["@malicious"]) for x in domaininfo["domain"]]
+        domains = [
+            (x["@name"], tag_malicious(x["@malicious"]), SANDBOX_NAME)
+            for x in domaininfo["domain"]
+        ]
 
     return {
         "malicious": malicious,
         "ioc": {"urls": urls, "domains": domains, "ips": ips},
+        "status": "finished",
+        "sandbox": SANDBOX_NAME,
     }
