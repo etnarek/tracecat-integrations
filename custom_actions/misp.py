@@ -7,7 +7,6 @@ from pymisp import MISPAttribute, MISPEvent, PyMISP, PyMISPError
 from pymisp.tools import make_binary_objects
 from tracecat_registry import RegistrySecret, registry, secrets
 
-SLEEP_TIME = 300
 SSL = True
 
 misp_secrets = RegistrySecret(
@@ -105,5 +104,52 @@ def add_iocs(
     return {"success": "success"}
 
 
-def tag():
-    pass
+def in_tags(tag: str, event: MISPEvent):
+    for t in event.tags:
+        if t.name == tag:
+            return True
+    return False
+
+
+def malware_toids(event: MISPEvent, misp: PyMISP):
+    file_object = event.objects[0]
+    for att in file_object.attributes:
+        if att.category == "Payload delivery":
+            att.to_ids = True
+            misp.update_attribute(att)
+
+
+@registry.register(
+    default_title="Misp tag event",
+    display_group="Misp",
+    description="Tag a misp event depending on sandboxes reports.",
+    namespace="misp",
+    secrets=[misp_secrets],
+)
+def tag_event(
+    event_uuid: Annotated[str, Field(description="uuid of the event to add to.")],
+    reports: Annotated[
+        list[dict, Any],
+        Field(description="List of reports from the different sandboxes."),
+    ],
+) -> dict[str, Any]:
+    misp = PyMISP(secrets.get("MISP_URL"), secrets.get("MISP_APIKEY"), SSL, "json")
+    event = misp.get_event(event_uuid, pythonify=True)
+    tags = set()
+
+    for report in reports:
+        event.add_tag(report["sandbox"] + "_" + report["malicious"])
+        tags.add(report["malicious"])
+
+    if "malicious" in tags:
+        event.add_tag("malicious")
+        malware_toids(event, misp)
+    elif "suspicious" in tags:
+        event.add_tag("suspicious")
+        malware_toids(event, misp)
+    elif "clean" in tags:
+        event.add_tag("clean")
+
+    misp.update_event(event)
+
+    return {"success": "success"}
