@@ -52,22 +52,25 @@ def submit(
 
     malicious = report["result"]["verdict"]
 
+    response = session.get(BASE_URL + result_url + "/iocs")
+    iocs = response.json()
+
     urls, ips, domains = [], [], []
 
-    if report["result"].get("network"):
+    if iocs["result"].get("network"):
         urls = [
             (x["ioc"], x["classification"])
-            for x in report["result"]["network"]
+            for x in iocs["result"]["network"]
             if x["type"] == "url"
         ]
         ips = [
             (x["ioc"], x["classification"])
-            for x in report["result"]["network"]
+            for x in iocs["result"]["network"]
             if x["type"] == "ip"
         ]
         domains = [
             (x["ioc"], x["classification"])
-            for x in report["result"]["network"]
+            for x in iocs["result"]["network"]
             if x["type"] == "domain"
         ]
 
